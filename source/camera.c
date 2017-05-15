@@ -68,7 +68,7 @@ static void init_camera(CAMU_Size size, CAMU_OutputFormat format, CAMU_FrameRate
     CAMU_SetTrimming(PORT_CAM1, false);
     CAMU_SetTrimming(PORT_CAM2, false);
 
-    CAMU_SetBrightnessSynchronization(true);
+    //CAMU_SetBrightnessSynchronization(true);
 }
 
 static bool create_camera_buffers(CAMU_Size size, u16 **cam1, u16 **cam2) {

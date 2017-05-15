@@ -81,7 +81,7 @@ static int send_client_frames(int ssckt, CAMU_Size size, u16 *cam1, u16 *cam2) {
     int ret;
     memset(&client, 0, sizeof(client));
 
-    u32 clientlen = sizeof(client);
+    socklen_t clientlen = sizeof(client);
     int csckt = accept(ssckt, (struct sockaddr *)&client, &clientlen);
     if (csckt < 0) {return -1;}
 

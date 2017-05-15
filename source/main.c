@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 
     consoleSelect(&con_top);
 
-    printf("IPCam 3DS\n");
+    printf("IPCam3DS\n");
     printf("https://github.com/jc38x/IPCam3DS\n");
     printf("\n");
 
@@ -75,8 +75,8 @@ int main(int argc, char **argv) {
     printf("Frame Rate %s\n", str_rate[rate]);
     printf("\n");
 
+    init_server(port, backlog);
     init_capture(camsize, format, rate);
-	init_server(port, backlog);
 
 	printf("\n");
 	printf("Press Start to quit\n");
@@ -95,8 +95,8 @@ int main(int argc, char **argv) {
         gfxSwapBuffers();
     }
 
-    exit_server();
     exit_capture();
+    exit_server();
 
     printf("Cleanup completed\n");
 
