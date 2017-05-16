@@ -17,7 +17,8 @@
 #include <3ds.h>
 
 void get_camera_size(CAMU_Size size, s16 *width, s16 *height, u32 *imsize);
-void init_capture(CAMU_Size size, CAMU_OutputFormat format, CAMU_FrameRate rate);
+void init_capture(CAMU_Size size);
 void exit_capture();
 bool load_capture(u16 **cam1, u16 **cam2);
 void read_camera(CAMU_Size size, u16 *cam1, u16 *cam2);
+void configure_camera(CAMU_Size size, CAMU_OutputFormat format);

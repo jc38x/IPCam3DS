@@ -18,41 +18,39 @@
 #include "camera.h"
 #include "server.h"
 
-static char const * const str_rate[] = {
-    "FRAME_RATE_15",
-	"FRAME_RATE_15_TO_5",
-	"FRAME_RATE_15_TO_2",
-	"FRAME_RATE_10",
-	"FRAME_RATE_8_5",
-	"FRAME_RATE_5",
-	"FRAME_RATE_20",
-	"FRAME_RATE_20_TO_5",
-	"FRAME_RATE_30",
-	"FRAME_RATE_30_TO_5",
-	"FRAME_RATE_15_TO_10",
-	"FRAME_RATE_20_TO_10",
-	"FRAME_RATE_30_TO_10"
-};
-
 static char const * const str_format[] = {
     "OUTPUT_YUV_422",
 	"OUTPUT_RGB_565"
 };
 
-int main(int argc, char **argv) {
-	const CAMU_Size         camsize = SIZE_CTR_TOP_LCD;
-	const CAMU_OutputFormat format  = OUTPUT_RGB_565;
-	const CAMU_FrameRate    rate    = FRAME_RATE_10;
+static const CAMU_Size         camsize = SIZE_CTR_TOP_LCD;
+static const CAMU_OutputFormat format  = OUTPUT_RGB_565;
 
-	const uint16_t  port    = 80;
-	const int       backlog = 4;
+static const uint16_t port    = 80;
+static const int      backlog = 4;
+
+void print_calibration_data() {
+    CAMU_StereoCameraCalibrationData data;
+
+    CAMU_GetStereoCameraCalibrationData(&data);
+
+    printf("Calibration data\n");
+    printf("tx: %f | ty: %f\n", data.translationX, data.translationY);
+    printf("rx: %f | ry: %f | v: %d\n", data.rotationX, data.rotationY, (int)data.isValidRotationXY);
+    printf("rz: %f\n", data.rotationZ);
+    printf("s:  %f\n", data.scale);
+    printf("w:  %d | h:  %d\n", (int)data.imageWidth, (int)data.imageHeight);
+    printf("al: %f | ar: %f\n", data.angleOfViewLeft, data.angleOfViewRight);
+    printf("dc: %f | dt: %f\n", data.distanceCameras, data.distanceToChart);
+}
+
+int main(int argc, char **argv) {
+    PrintConsole con_top;
+	PrintConsole con_bot;
 
 	gfxInitDefault();
     gfxSetDoubleBuffering(GFX_TOP,    false);
 	gfxSetDoubleBuffering(GFX_BOTTOM, false);
-
-	PrintConsole con_top;
-	PrintConsole con_bot;
 
 	consoleInit(GFX_TOP,    &con_top);
 	consoleInit(GFX_BOTTOM, &con_bot);
@@ -72,22 +70,25 @@ int main(int argc, char **argv) {
     printf("Camera configuration\n");
     printf("Size %dx%d (%d)\n", (int)width, (int)height, (int)imsize);
     printf("Output Format %s\n", str_format[format]);
-    printf("Frame Rate %s\n", str_rate[rate]);
     printf("\n");
 
+    init_capture(camsize);
     init_server(port, backlog);
-    init_capture(camsize, format, rate);
 
-	printf("\n");
+    configure_camera(camsize, format);
+
+    printf("\n");
 	printf("Press Start to quit\n");
 
 	consoleSelect(&con_bot);
 
-    while (aptMainLoop()) {
+	while (aptMainLoop()) {
         hidScanInput();
 
         u32 kDown = hidKeysDown();
-		if ((kDown & KEY_START) != 0) {break;}
+
+		if ((kDown & KEY_START)  != 0) {break;}
+		if ((kDown & KEY_SELECT) != 0) {print_calibration_data();}
 
 		send_frames(camsize);
 
@@ -95,11 +96,10 @@ int main(int argc, char **argv) {
         gfxSwapBuffers();
     }
 
-    exit_capture();
+    printf("Cleaning up (might take a few minutes)\n");
+
     exit_server();
-
-    printf("Cleanup completed\n");
-
+    exit_capture();
     gfxExit();
 
     return 0;

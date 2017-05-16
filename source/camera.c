@@ -39,38 +39,6 @@ void get_camera_size(CAMU_Size size, s16 *width, s16 *height, u32 *imsize) {
     *imsize = ((u32)*width * (u32)*height) * sizeof(u16);
 }
 
-static void init_camera(CAMU_Size size, CAMU_OutputFormat format, CAMU_FrameRate rate) {
-    camInit();
-
-    CAMU_SetSize(SELECT_OUT1_OUT2, size, CONTEXT_A);
-    CAMU_SetOutputFormat(SELECT_OUT1_OUT2, format, CONTEXT_A);
-
-    CAMU_SetFrameRate(SELECT_OUT1_OUT2, rate);
-    CAMU_SetNoiseFilter(SELECT_OUT1_OUT2, true);
-    CAMU_SetAutoExposure(SELECT_OUT1_OUT2, true);
-    CAMU_SetAutoWhiteBalance(SELECT_OUT1_OUT2, true);
-
-    //CAMU_SetLensCorrection(SELECT_OUT1_OUT2, LENS_CORRECTION_NORMAL);
-    //CAMU_SetContrast(SELECT_OUT1_OUT2, CONTRAST_NORMAL);
-    //CAMU_SetPhotoMode(SELECT_OUT1_OUT2, PHOTO_MODE_NORMAL);
-    //CAMU_SetEffect(SELECT_OUT1_OUT2, EFFECT_NONE, CONTEXT_A);
-    //CAMU_SetSharpness(u32 select, s8 sharpness);
-
-    /*
-    CAMU_StereoCameraCalibrationData data;
-    CAMU_GetStereoCameraCalibrationData(&data);
-    printf("tx: %f | ty: %f\n", data.translationX, data.translationY);
-    printf("rx: %f | ry: %f | rz: %f\n", data.rotationX, data.rotationY, data.rotationZ);
-    printf("s: %f\n", data.scale);
-    printf("VXY: %d\n", data.isValidRotationXY);
-    */
-
-    CAMU_SetTrimming(PORT_CAM1, false);
-    CAMU_SetTrimming(PORT_CAM2, false);
-
-    //CAMU_SetBrightnessSynchronization(true);
-}
-
 static bool create_camera_buffers(CAMU_Size size, u16 **cam1, u16 **cam2) {
     s16 width;
     s16 height;
@@ -97,11 +65,11 @@ static void exit_camera(u16 *cam1, u16 *cam2) {
     free(cam2);
 }
 
-void init_capture(CAMU_Size size, CAMU_OutputFormat format, CAMU_FrameRate rate) {
+void init_capture(CAMU_Size size) {
     if (g_ready) {return;}
     g_ready = create_camera_buffers(size, &g_cam1, &g_cam2);
     if (g_ready) {
-    init_camera(size, format, rate);
+    camInit();
     printf("Camera ready\n");
     }
     else {
@@ -149,10 +117,42 @@ void read_camera(CAMU_Size size, u16 *cam1, u16 *cam2) {
     svcWaitSynchronization(event1, WAIT_TIMEOUT);
     svcWaitSynchronization(event2, WAIT_TIMEOUT);
 
+    //CAMU_PlayShutterSound(SHUTTER_SOUND_TYPE_NORMAL);
+
     CAMU_StopCapture(PORT_BOTH);
 
     svcCloseHandle(event1);
     svcCloseHandle(event2);
 
     CAMU_Activate(SELECT_NONE);
+}
+
+void configure_camera(CAMU_Size size, CAMU_OutputFormat format) {
+    CAMU_SetSize(SELECT_OUT1_OUT2, size, CONTEXT_A);
+
+    CAMU_SetOutputFormat(SELECT_OUT1_OUT2, format, CONTEXT_A);
+    //CAMU_FlipImage(SELECT_OUT1_OUT2, FLIP_NONE, CONTEXT_A);
+    //CAMU_SetEffect(SELECT_OUT1_OUT2, EFFECT_NONE, CONTEXT_A);
+
+    CAMU_SetFrameRate(SELECT_OUT1_OUT2, FRAME_RATE_10);
+    //CAMU_SetPhotoMode(SELECT_OUT1_OUT2, PHOTO_MODE_NORMAL);
+    //CAMU_SetLensCorrection(SELECT_OUT1_OUT2, LENS_CORRECTION_NORMAL);
+    //CAMU_SetContrast(SELECT_OUT1_OUT2, CONTRAST_NORMAL);
+
+    CAMU_SetNoiseFilter(SELECT_OUT1_OUT2, true);
+    CAMU_SetAutoWhiteBalance(SELECT_OUT1_OUT2, true);
+    CAMU_SetAutoExposure(SELECT_OUT1_OUT2, true);
+
+    //CAMU_SetWhiteBalance(u32 select, CAMU_WhiteBalance whiteBalance);
+    //CAMU_SetWhiteBalanceWithoutBaseUp(u32 select, CAMU_WhiteBalance whiteBalance);
+    //CAMU_SetExposure(u32 select, s8 exposure);
+    //CAMU_SetSharpness(u32 select, s8 sharpness);
+
+    //CAMU_GetImageQualityCalibrationData(CAMU_ImageQualityCalibrationData* data);
+    //CAMU_GetSuitableY2rStandardCoefficient(Y2RU_StandardCoefficient* coefficient);
+
+    CAMU_SetTrimming(PORT_CAM1, false);
+    CAMU_SetTrimming(PORT_CAM2, false);
+
+    CAMU_SetBrightnessSynchronization(true);
 }
