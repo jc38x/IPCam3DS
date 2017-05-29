@@ -21,6 +21,8 @@
 static u16  *g_cam1;
 static u16  *g_cam2;
 static bool  g_ready;
+static u32   g_imsize;
+static u32   g_bufsize;
 
 void get_camera_size(CAMU_Size size, s16 *width, s16 *height, u32 *imsize) {
     static const s16 dim[][2] = {
@@ -65,76 +67,14 @@ static void exit_camera(u16 *cam1, u16 *cam2) {
     free(cam2);
 }
 
-void init_capture(CAMU_Size size) {
-    if (g_ready) {return;}
-    g_ready = create_camera_buffers(size, &g_cam1, &g_cam2);
-    if (g_ready) {
-    camInit();
-    printf("Camera ready\n");
-    }
-    else {
-    printf("create_camera_buffers failed\n");
-    }
-}
-
-void exit_capture() {
-    if (!g_ready) {return;}
-    camExit();
-    exit_camera(g_cam1, g_cam2);
-    g_ready = false;
-    printf("Camera shutdown\n");
-}
-
-bool load_capture(u16 **cam1, u16 **cam2) {
-    *cam1 = g_cam1;
-    *cam2 = g_cam2;
-    return g_ready;
-}
-
-void read_camera(CAMU_Size size, u16 *cam1, u16 *cam2) {
-    s16 width;
-    s16 height;
-    u32 imsize;
-    u32 bufsize;
-
-    get_camera_size(size, &width, &height, &imsize);
-
-    CAMU_GetMaxBytes(&bufsize, width, height);
-    CAMU_SetTransferBytes(PORT_BOTH, bufsize, width, height);
-
-    CAMU_Activate(SELECT_OUT1_OUT2);
-    CAMU_ClearBuffer(PORT_BOTH);
-    CAMU_SynchronizeVsyncTiming(SELECT_OUT1, SELECT_OUT2);
-
-    CAMU_StartCapture(PORT_BOTH);
-
-    Handle event1;
-    Handle event2;
-
-    CAMU_SetReceiving(&event1, (void *)cam1, PORT_CAM1, imsize, bufsize);
-    CAMU_SetReceiving(&event2, (void *)cam2, PORT_CAM2, imsize, bufsize);
-
-    svcWaitSynchronization(event1, WAIT_TIMEOUT);
-    svcWaitSynchronization(event2, WAIT_TIMEOUT);
-
-    //CAMU_PlayShutterSound(SHUTTER_SOUND_TYPE_NORMAL);
-
-    CAMU_StopCapture(PORT_BOTH);
-
-    svcCloseHandle(event1);
-    svcCloseHandle(event2);
-
-    CAMU_Activate(SELECT_NONE);
-}
-
-void configure_camera(CAMU_Size size, CAMU_OutputFormat format) {
+static void configure_camera(CAMU_Size size, CAMU_OutputFormat format, CAMU_FrameRate rate) {
     CAMU_SetSize(SELECT_OUT1_OUT2, size, CONTEXT_A);
 
     CAMU_SetOutputFormat(SELECT_OUT1_OUT2, format, CONTEXT_A);
     //CAMU_FlipImage(SELECT_OUT1_OUT2, FLIP_NONE, CONTEXT_A);
     //CAMU_SetEffect(SELECT_OUT1_OUT2, EFFECT_NONE, CONTEXT_A);
 
-    CAMU_SetFrameRate(SELECT_OUT1_OUT2, FRAME_RATE_10);
+    CAMU_SetFrameRate(SELECT_OUT1_OUT2, rate);
     //CAMU_SetPhotoMode(SELECT_OUT1_OUT2, PHOTO_MODE_NORMAL);
     //CAMU_SetLensCorrection(SELECT_OUT1_OUT2, LENS_CORRECTION_NORMAL);
     //CAMU_SetContrast(SELECT_OUT1_OUT2, CONTRAST_NORMAL);
@@ -155,4 +95,70 @@ void configure_camera(CAMU_Size size, CAMU_OutputFormat format) {
     CAMU_SetTrimming(PORT_CAM2, false);
 
     CAMU_SetBrightnessSynchronization(true);
+}
+
+static void set_transfer(CAMU_Size size) {
+    s16 width;
+    s16 height;
+
+    get_camera_size(size, &width, &height, &g_imsize);
+    CAMU_GetMaxBytes(&g_bufsize, width, height);
+    CAMU_SetTransferBytes(PORT_BOTH, g_bufsize, width, height);
+}
+
+void init_capture(CAMU_Size size, CAMU_OutputFormat format, CAMU_FrameRate rate) {
+    if (g_ready) {return;}
+    g_ready = create_camera_buffers(size, &g_cam1, &g_cam2);
+    if (g_ready) {
+    camInit();
+    configure_camera(size, format, rate);
+    set_transfer(size);
+    printf("Camera ready\n");
+    }
+    else {
+    printf("create_camera_buffers failed\n");
+    }
+}
+
+void exit_capture(void) {
+    if (!g_ready) {return;}
+    camExit();
+    exit_camera(g_cam1, g_cam2);
+    g_ready = false;
+    printf("Camera shutdown\n");
+}
+
+bool load_capture(u16 **cam1, u16 **cam2, u32 *imsize) {
+    *cam1 = g_cam1;
+    *cam2 = g_cam2;
+
+    *imsize = g_imsize;
+
+    return g_ready;
+}
+
+void begin_capture(void) {
+    CAMU_Activate(SELECT_OUT1_OUT2);
+    CAMU_ClearBuffer(PORT_BOTH);
+    CAMU_SynchronizeVsyncTiming(SELECT_OUT1, SELECT_OUT2);
+    CAMU_StartCapture(PORT_BOTH);
+}
+
+void receive_capture(void) {
+    Handle event1;
+    Handle event2;
+
+    CAMU_SetReceiving(&event1, (void *)g_cam1, PORT_CAM1, g_imsize, g_bufsize);
+    CAMU_SetReceiving(&event2, (void *)g_cam2, PORT_CAM2, g_imsize, g_bufsize);
+
+    svcWaitSynchronization(event1, WAIT_TIMEOUT);
+    svcWaitSynchronization(event2, WAIT_TIMEOUT);
+
+    svcCloseHandle(event1);
+    svcCloseHandle(event2);
+}
+
+void end_capture(void) {
+    CAMU_StopCapture(PORT_BOTH);
+    CAMU_Activate(SELECT_NONE);
 }

@@ -17,5 +17,6 @@
 #include <3ds.h>
 
 void init_server(uint16_t port, int backlog);
-void exit_server();
-void send_frames(CAMU_Size size);
+void exit_server(void);
+void send_frames_to_client(void);
+void send_frames_to_server(char const *ip, uint16_t port);

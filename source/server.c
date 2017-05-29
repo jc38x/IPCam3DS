@@ -76,7 +76,7 @@ static int create_server_socket(uint16_t port, int backlog) {
     return ret;
 }
 
-static int send_client_frames(int ssckt, CAMU_Size size, u16 *cam1, u16 *cam2) {
+static int send_client_frames(int ssckt, u16 *cam1, u16 *cam2, u32 imsize) {
     struct sockaddr_in client;
     int ret;
     memset(&client, 0, sizeof(client));
@@ -86,14 +86,6 @@ static int send_client_frames(int ssckt, CAMU_Size size, u16 *cam1, u16 *cam2) {
     if (csckt < 0) {return -1;}
 
     printf("Client %s:%d\n", inet_ntoa(client.sin_addr), (int)ntohs(client.sin_port));
-
-    read_camera(size, cam1, cam2);
-
-    s16 width;
-    s16 height;
-    u32 imsize;
-
-    get_camera_size(size, &width, &height, &imsize);
 
     ret = fcntl(csckt, F_SETFL, fcntl(csckt, F_GETFL, 0) & ~O_NONBLOCK);
     if (ret != -1) {
@@ -110,6 +102,40 @@ static int send_client_frames(int ssckt, CAMU_Size size, u16 *cam1, u16 *cam2) {
     else {ret = -2;}
 
     close(csckt);
+    return ret;
+}
+
+static int send_server_frames(char const *ip, uint16_t port, u16 *cam1, u16 *cam2, u32 imsize) {
+    int ssckt = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (ssckt < 0) {return -1;}
+
+    struct sockaddr_in server;
+    int ret;
+    memset(&server, 0, sizeof(server));
+
+    server.sin_family      = AF_INET;
+    server.sin_port        = htons(port);
+    server.sin_addr.s_addr = inet_addr(ip);
+
+    ret = connect(ssckt, (struct sockaddr *)&server, sizeof(server));
+    if (ret == 0) {
+    ret = fcntl(ssckt, F_SETFL, fcntl(ssckt, F_GETFL, 0) & ~O_NONBLOCK);
+    if (ret != -1) {
+    ret = send(ssckt, cam1, imsize, 0);
+    if (ret != -1) {
+    ret = send(ssckt, cam2, imsize, 0);
+    if (ret != -1) {
+    ret = 0;
+    }
+    else {ret = -5;}
+    }
+    else {ret = -4;}
+    }
+    else {ret = -3;}
+    }
+    else {ret = -2;}
+
+    close(ssckt);
     return ret;
 }
 
@@ -131,7 +157,7 @@ void init_server(uint16_t port, int backlog) {
     }
 }
 
-void exit_server() {
+void exit_server(void) {
     if (g_ssckt < 0) {return;}
     close(g_ssckt);
     exit_soc(g_soc_buffer);
@@ -139,14 +165,30 @@ void exit_server() {
     printf("Server shutdown\n");
 }
 
-void send_frames(CAMU_Size size) {
+void send_frames_to_client(void) {
     if (g_ssckt < 0) {return;}
 
     u16 *cam1;
     u16 *cam2;
-    bool ready = load_capture(&cam1, &cam2);
+    u32  imsize;
+
+    bool ready = load_capture(&cam1, &cam2, &imsize);
     if (!ready) {return;}
 
-    int ret = send_client_frames(g_ssckt, size, cam1, cam2);
+    int ret = send_client_frames(g_ssckt, cam1, cam2, imsize);
     if (ret < -1) {printf("send_client_frames failed (%d)\n", ret);}
+}
+
+void send_frames_to_server(char const *ip, uint16_t port) {
+    if (g_ssckt < 0) {return;}
+
+    u16 *cam1;
+    u16 *cam2;
+    u32 imsize;
+
+    bool ready = load_capture(&cam1, &cam2, &imsize);
+    if (!ready) {return;}
+
+    int ret = send_server_frames(ip, port, cam1, cam2, imsize);
+    if (ret != 0) {printf("send_server_frames failed (%d)\n", ret);}
 }
