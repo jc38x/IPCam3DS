@@ -21,10 +21,10 @@ jc38x
 #define CAM1_WIN_NAME "CAM1"
 #define CAM2_WIN_NAME "CAM2"
 
-static const int      g_width = 400;
-static const int      g_height = 240;
+static const int      g_width     = 400;
+static const int      g_height    = 240;
 static const uint16_t g_localport = 81;
-static const int      g_backlog = 4;
+static const int      g_backlog   = 4;
 
 const int g_imsize = g_height * g_width * sizeof(uint16_t);
 
@@ -55,8 +55,8 @@ int create_server_socket(uint16_t localport, int backlog, SOCKET &ssckt) {
 	if (ret == 0) {
 	ret = listen(ssckt, backlog);
 	if (ret == 0) {
-	//u_long iMode = 1;
-	//ioctlsocket(ssckt, FIONBIO, &iMode);
+	u_long iMode = 1;
+	ioctlsocket(ssckt, FIONBIO, &iMode);
 	return 0;
 	}
 	else {
@@ -80,7 +80,10 @@ int receive_frames(SOCKET ssckt, char *data1, char *data2, int imsize) {
 
 	std::cout << "Client " << inet_ntoa(client.sin_addr) << ":" << (int)ntohs(client.sin_port) << std::endl;
 
+	u_long iMode = 0;
 	int ret;
+	ioctlsocket(csckt, FIONBIO, &iMode);
+
 	int bytes1 = recv(csckt, data1, imsize, MSG_WAITALL);
 	if (bytes1 == imsize) {
 	int bytes2 = recv(csckt, data2, imsize, MSG_WAITALL);
@@ -140,8 +143,8 @@ int main(int argc, char** argv) {
 	cv::Mat img1_888(g_height, g_width, CV_8UC3);
 	cv::Mat img2_888(g_height, g_width, CV_8UC3);
 
-	//cv::namedWindow(CAM1_WIN_NAME);
-	//cv::namedWindow(CAM2_WIN_NAME);
+	cv::namedWindow(CAM1_WIN_NAME);
+	cv::namedWindow(CAM2_WIN_NAME);
 
 	std::string basename;
 	
@@ -150,21 +153,22 @@ int main(int argc, char** argv) {
 		if (key == VK_ESCAPE) { break; }
 
 		ret = receive_frames(ssckt, (char *)img1_565.data, (char *)img2_565.data, g_imsize);
-		if (ret != 0) {
-			std::cout << "receive_frames failed (" << ret << ")" << std::endl;
-			continue;
-		}
-
+		if (ret == 0) {
 		convert_RGB565_picture((uint16_t *)img1_565.data, g_width, g_height, img1_888.data);
 		convert_RGB565_picture((uint16_t *)img2_565.data, g_width, g_height, img2_888.data);
 
-		//cv::imshow(CAM1_WIN_NAME, img1_888);
-		//cv::imshow(CAM2_WIN_NAME, img2_888);
+		cv::imshow(CAM1_WIN_NAME, img1_888);
+		cv::imshow(CAM2_WIN_NAME, img2_888);
 
 		basename = std::to_string(time(NULL));
 
 		cv::imwrite(basename + "_CAM1.png", img1_888);
 		cv::imwrite(basename + "_CAM2.png", img2_888);
+		}
+		else if (ret < -1) {
+		std::cout << "receive_frames failed (" << ret << ")" << std::endl;
+		continue;
+		}
 	}
 
 	exit_sockets(ssckt);
